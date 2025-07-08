@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest  # Use latest Ubuntu runner
     defaults:
       run:
-        working-directory: environments/dev  # Set default working directory for Terraform
+        working-directory: environments/dev  # default working directory for Terraform
 
     # Load all Terraform variables from GitHub Environment Secrets
     env:
@@ -96,7 +96,7 @@ jobs:
           config-file: .checkov.yml              # Use this config file
           output_format: sarif
           output_file_path: checkov-results/checkov-results.sarif
-          soft_fail: true                        # Don't fail the workflow on Checkov issues
+          soft_fail: true                       
 
       # Step 8: Upload Checkov SARIF scan results to the GitHub Security tab
       - name: Upload Checkov SARIF results to GitHub Security tab
