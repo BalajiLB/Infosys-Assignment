@@ -1,2 +1,2 @@
-# Infosys-Assignment
-This assignment is provision of aws infra resources via terraform.
+# AWS-Infra-Repo
+This respository for provision aws resources.
