@@ -336,23 +336,23 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "logging_bucket_en
   }
 }
 
-# Enable access logging for replication target bucket
-resource "aws_s3_bucket_logging" "replication_target_logging" {
-  bucket        = aws_s3_bucket.replication_target_bucket.id
-  target_bucket = aws_s3_bucket.logging_target_bucket.id
-  target_prefix = "replication-logs/"
+# ----------------------------
+# Enable Event Notifications (Create SNS topic + attach to S3 bucket)
+# ----------------------------
+
+resource "aws_sns_topic" "dummy_topic" {
+  name = "dummy-topic"
 }
 
-# ----------------------------
-# Enable Event Notifications (Example SNS topic)
-# ----------------------------
 resource "aws_s3_bucket_notification" "infra_notification" {
   bucket = aws_s3_bucket.infra_bucket.id
 
   topic {
-    topic_arn = "arn:aws:sns:${var.aws_region}:${data.aws_caller_identity.current.account_id}:dummy-topic"
+    topic_arn = aws_sns_topic.dummy_topic.arn
     events    = ["s3:ObjectCreated:*"]
   }
+
+  depends_on = [aws_sns_topic.dummy_topic]
 }
 
 # ----------------------------
