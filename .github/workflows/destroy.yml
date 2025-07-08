@@ -1,0 +1,78 @@
+# This workflow will destroy your Terraform-managed infrastructure.
+# ✅ Recommended to trigger this workflow manually (workflow_dispatch) to avoid accidental destruction.
+
+name: Terraform Destroy  # Workflow name visible in the Actions tab
+
+# Trigger only manually from the GitHub Actions UI
+on:
+  workflow_dispatch:
+
+# Set required permissions for the workflow
+permissions:
+  id-token: write           # Needed for AWS OIDC authentication
+  contents: read            # Required to checkout the repo
+
+# Define the destroy job
+jobs:
+  terraform-destroy:
+    runs-on: ubuntu-latest  # Run on the latest Ubuntu GitHub-hosted runner
+
+    # Default working directory (where your Terraform files are present)
+    defaults:
+      run:
+        working-directory: environments/dev  # Path where your Terraform files are located
+
+    # 🔑 Load variables from GitHub secrets like in deploy.yml
+    env:
+      TF_VAR_env: ${{ secrets.TF_VAR_env }}
+      TF_VAR_aws_region: ${{ secrets.TF_VAR_aws_region }}
+      TF_VAR_vpc_cidr: ${{ secrets.TF_VAR_vpc_cidr }}
+      TF_VAR_public_subnet_a_cidr: ${{ secrets.TF_VAR_public_subnet_a_cidr }}
+      TF_VAR_public_subnet_b_cidr: ${{ secrets.TF_VAR_public_subnet_b_cidr }}
+      TF_VAR_default_route_cidr: ${{ secrets.TF_VAR_default_route_cidr }}
+      TF_VAR_availability_zone_a: ${{ secrets.TF_VAR_availability_zone_a }}
+      TF_VAR_availability_zone_b: ${{ secrets.TF_VAR_availability_zone_b }}
+      TF_VAR_instance_type: ${{ secrets.TF_VAR_instance_type }}
+      TF_VAR_ec2_role_name: ${{ secrets.TF_VAR_ec2_role_name }}
+      TF_VAR_bucket_name: ${{ secrets.TF_VAR_bucket_name }}
+      TF_VAR_logging_target_bucket: ${{ secrets.TF_VAR_logging_target_bucket }}
+      TF_VAR_replication_target_bucket: ${{ secrets.TF_VAR_replication_target_bucket }}
+      TF_VAR_ingress_descriptions: ${{ secrets.TF_VAR_ingress_descriptions }}
+      TF_VAR_ingress_from_ports: ${{ secrets.TF_VAR_ingress_from_ports }}
+      TF_VAR_ingress_to_ports: ${{ secrets.TF_VAR_ingress_to_ports }}
+      TF_VAR_ingress_protocols: ${{ secrets.TF_VAR_ingress_protocols }}
+      TF_VAR_ingress_cidr_blocks: ${{ secrets.TF_VAR_ingress_cidr_blocks }}
+      TF_VAR_egress_from_port: ${{ secrets.TF_VAR_egress_from_port }}
+      TF_VAR_egress_to_port: ${{ secrets.TF_VAR_egress_to_port }}
+      TF_VAR_egress_protocol: ${{ secrets.TF_VAR_egress_protocol }}
+      TF_VAR_egress_cidr_blocks: ${{ secrets.TF_VAR_egress_cidr_blocks }}
+      TF_VAR_tags: '{"Environment":"dev","Owner":"logabalaji","Project":"my-project"}'
+
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Authenticate with AWS using OIDC (secure temporary credentials)
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::055714170174:role/github-action-workflow  # Replace with your IAM Role ARN
+          aws-region: us-west-2                                                   # Replace with your AWS Region
+
+      # Step 3: Install the Terraform CLI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # Step 4: Initialize Terraform and download the state backend (DynamoDB/S3) configuration
+      - name: Terraform Init
+        run: terraform init -reconfigure -no-color
+
+      # Step 5: (Optional) Show what Terraform will destroy
+      - name: Terraform Plan Destroy
+        run: terraform plan -destroy -no-color -lock-timeout=30s
+
+      # Step 6: Destroy the Terraform resources
+      # ⚠️ This step performs the actual destroy. Keep it only for authorized manual triggers!
+      - name: Terraform Destroy (manual approval)
+        run: terraform destroy -auto-approve -no-color -lock-timeout=300s

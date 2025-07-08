@@ -1,0 +1,129 @@
+name: Terraform Deploy  # Name of the GitHub Actions workflow
+
+# When to trigger the workflow
+on:
+  push:
+    branches:
+      - main               # Trigger automatically when code is pushed to main
+  workflow_dispatch:        # Allow manual execution from the GitHub UI
+
+# Set required permissions for this workflow
+permissions:
+  id-token: write           # Needed for AWS OIDC authentication
+  contents: read            # Allow reading repo contents
+  security-events: write    # Allow uploading SARIF security scan results
+
+# Define the job
+jobs:
+  terraform:
+    runs-on: ubuntu-latest  # Use latest Ubuntu runner
+    defaults:
+      run:
+        working-directory: environments/dev  # Set default working directory for Terraform
+
+    # Load all Terraform variables from GitHub Environment Secrets
+    env:
+      TF_VAR_env: ${{ secrets.TF_VAR_env }}
+      TF_VAR_aws_region: ${{ secrets.TF_VAR_aws_region }}
+      TF_VAR_vpc_cidr: ${{ secrets.TF_VAR_vpc_cidr }}
+      TF_VAR_public_subnet_a_cidr: ${{ secrets.TF_VAR_public_subnet_a_cidr }}
+      TF_VAR_public_subnet_b_cidr: ${{ secrets.TF_VAR_public_subnet_b_cidr }}
+      TF_VAR_default_route_cidr: ${{ secrets.TF_VAR_default_route_cidr }}
+      TF_VAR_availability_zone_a: ${{ secrets.TF_VAR_availability_zone_a }}
+      TF_VAR_availability_zone_b: ${{ secrets.TF_VAR_availability_zone_b }}
+      TF_VAR_instance_type: ${{ secrets.TF_VAR_instance_type }}
+      TF_VAR_ec2_role_name: ${{ secrets.TF_VAR_ec2_role_name }}
+      TF_VAR_bucket_name: ${{ secrets.TF_VAR_bucket_name }}
+      TF_VAR_logging_target_bucket: ${{ secrets.TF_VAR_logging_target_bucket }}
+      TF_VAR_replication_target_bucket: ${{ secrets.TF_VAR_replication_target_bucket }}
+      TF_VAR_ingress_descriptions: ${{ secrets.TF_VAR_ingress_descriptions }}
+      TF_VAR_ingress_from_ports: ${{ secrets.TF_VAR_ingress_from_ports }}
+      TF_VAR_ingress_to_ports: ${{ secrets.TF_VAR_ingress_to_ports }}
+      TF_VAR_ingress_protocols: ${{ secrets.TF_VAR_ingress_protocols }}
+      TF_VAR_ingress_cidr_blocks: ${{ secrets.TF_VAR_ingress_cidr_blocks }}
+      TF_VAR_egress_from_port: ${{ secrets.TF_VAR_egress_from_port }}
+      TF_VAR_egress_to_port: ${{ secrets.TF_VAR_egress_to_port }}
+      TF_VAR_egress_protocol: ${{ secrets.TF_VAR_egress_protocol }}
+      TF_VAR_egress_cidr_blocks: ${{ secrets.TF_VAR_egress_cidr_blocks }}
+      TF_VAR_tags: '{"Environment":"dev","Owner":"logabalaji","Project":"my-project"}'
+
+    steps:
+      # Step 1: Checkout the source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Authenticate with AWS using OpenID Connect (OIDC)
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::055714170174:role/github-action-workflow
+          aws-region: us-west-2
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      # Step 3: Install Terraform CLI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # Step: Debug AWS Caller Identity & Region
+      - name: Check AWS Identity & Region
+        run: |
+          echo "Caller Identity:"
+          aws sts get-caller-identity
+
+          echo "Describe Lock Table:"
+          aws dynamodb describe-table --table-name terraform-locks
+
+          echo "List Lock Table Items:"
+          aws dynamodb scan --table-name terraform-locks
+
+      # Step 4: Initialize Terraform
+      - name: Terraform Init
+        run: terraform init -reconfigure -no-color
+
+      # Step 5: Check Terraform code formatting
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive 
+
+      # Step 6: Validate Terraform configuration
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      # Step 7: Run Checkov security scan
+      - name: Run Checkov Security Scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: environments/dev            # Scan this directory
+          config-file: .checkov.yml              # Use this config file
+          output_format: sarif
+          output_file_path: checkov-results/checkov-results.sarif
+          soft_fail: true                        # Don't fail the workflow on Checkov issues
+
+      # Step 8: Upload Checkov SARIF scan results to the GitHub Security tab
+      - name: Upload Checkov SARIF results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results/checkov-results.sarif
+
+      # Step 9: Run Terraform plan and save the output
+      - name: Terraform Plan
+        #run: terraform plan -out=tfplan.binary -no-color -lock-timeout=300s
+        run: TF_LOG=DEBUG terraform plan -out=tfplan.binary -no-color -lock-timeout=300s
+
+      # Step 10: Upload the Checkov scan as an artifact for later download
+      - name: Upload Security Report
+        if: always()  # Run this step even if the previous ones fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: checkov-results/checkov-results.sarif
+          retention-days: 3
+
+      # Step 11: Apply Terraform changes (only on manual trigger)
+      - name: Terraform Apply (manual approval)
+        if: github.event_name == 'workflow_dispatch'  # Only apply when manually triggered
+        run: terraform apply -auto-approve tfplan.binary
+
+      # Step 12: Clean up the generated Terraform plan file
+      - name: Cleanup Plan Files
+        if: always()  # Always clean up even if the workflow failed
+        run: rm -f tfplan.binary

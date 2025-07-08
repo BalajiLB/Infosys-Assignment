@@ -1,0 +1,30 @@
+name: Terraform Force Unlock
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  unlock:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::055714170174:role/github-action-workflow
+          aws-region: us-west-2
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      - name: Force Unlock Terraform State Lock in DynamoDB
+        run: |
+          echo "Attempting to force unlock..."
+          aws dynamodb delete-item \
+            --table-name terraform-locks \
+            --key '{"LockID": {"S": "my-terraform-state-logabalaji/dev/terraform.tfstate"}}'
+
+      - name: Unlock Completed
+        run: echo "Terraform state lock removed."
