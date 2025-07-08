@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # List of buckets
-buckets=("bucketname-1" "bucketname-2")
+buckets=("dev-dev-infra-bucket-30wgd1" "my-replication-bucket-30wgd1")
 region="us-west-2"
 
 for bucket in "${buckets[@]}"; do

@@ -278,6 +278,13 @@ resource "aws_s3_bucket_notification" "infra_notification" {
     aws_sns_topic_policy.dummy_topic_policy
   ]
 }
+#SNS Email Subscription
+resource "aws_sns_topic_subscription" "email_subscription" {
+  topic_arn = aws_sns_topic.dummy_topic.arn
+  protocol  = "email"
+  endpoint  = "logabalajikannaiyan@gmail.com"  
+}
+
 
 # ----------------------------
 # Default Security Group Restriction
