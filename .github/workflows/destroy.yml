@@ -16,6 +16,8 @@ permissions:
 jobs:
   terraform-destroy:
     runs-on: ubuntu-latest  # Run on the latest Ubuntu GitHub-hosted runner
+    environment: dev #inject secrets from the 'dev' environment
+
 
     # Default working directory (where your Terraform files are present)
     defaults:
