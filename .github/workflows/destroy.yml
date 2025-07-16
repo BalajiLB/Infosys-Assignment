@@ -1,5 +1,5 @@
 # This workflow will destroy your Terraform-managed infrastructure.
-# ✅ Recommended to trigger this workflow manually (workflow_dispatch) to avoid accidental destruction.
+# Recommended to trigger this workflow manually (workflow_dispatch) to avoid accidental destruction.
 
 name: Terraform Destroy  # Workflow name visible in the Actions tab
 
@@ -20,7 +20,7 @@ jobs:
     # Default working directory (where your Terraform files are present)
     defaults:
       run:
-        working-directory: environments/dev  # Path where your Terraform files are located
+        working-directory: environments/dev  # Terraform files are located
 
     # 🔑 Load variables from GitHub secrets like in deploy.yml
     env:
@@ -57,8 +57,8 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::055714170174:role/github-action-workflow  # Replace with your IAM Role ARN
-          aws-region: us-west-2                                                   # Replace with your AWS Region
+          role-to-assume: arn:aws:iam::055714170174:role/github-action-workflow  #  IAM Role ARN
+          aws-region: us-west-2                                                   # RAWS Region
 
       # Step 3: Install the Terraform CLI
       - name: Set up Terraform
