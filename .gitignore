@@ -1,0 +1,37 @@
+# --- Terraform ---
+*.tfstate
+*.tfstate.*
+.crash
+*.log
+*.tfplan
+*.tfplan.*
+.terraform/
+.terraform.lock.hcl
+
+# Exclude Terraform plan output and security scan results
+tfplan.binary
+checkov-results/
+
+# --- Local environment files ---
+.env
+*.env
+*.env.*
+
+# --- VSCode and IDE-specific ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- MacOS system files ---
+.DS_Store
+
+# --- GitHub Actions artifacts ---
+*.sarif
+security-report/
+
+# --- S3 Cleanup JSON files ---
+delete-deletemarkers.json
+delete-versions.json
+deletemarkers.json
+versions.json
